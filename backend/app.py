@@ -2,6 +2,7 @@ import os
 import secrets
 from datetime import date, datetime, timedelta, timezone
 from functools import wraps
+from urllib.parse import urlsplit
 
 import jwt
 from dotenv import load_dotenv
@@ -27,7 +28,12 @@ app.config.update(
     JWT_SECRET=os.getenv("JWT_SECRET", "development-only-secret"),
 )
 db = SQLAlchemy(app)
-CORS(app, resources={r"/api/*": {"origins": os.getenv("FRONTEND_ORIGIN", "*")}})
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "*")
+if frontend_origin != "*":
+    parsed_origin = urlsplit(frontend_origin)
+    if parsed_origin.scheme and parsed_origin.netloc:
+        frontend_origin = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
+CORS(app, resources={r"/api/*": {"origins": frontend_origin}})
 
 
 class User(db.Model):
