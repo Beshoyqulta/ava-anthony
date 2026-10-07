@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#243c44"/><stop offset="1" stop-color="#db7863"/></linearGradient></defs>
+  <rect width="400" height="500" rx="24" fill="url(#bg)"/>
+  <circle cx="200" cy="190" r="100" fill="#f7e5df" opacity=".9"/>
+  <path d="M145 375c10-88 35-137 55-137s45 49 55 137" fill="#e8efed"/>
+  <circle cx="177" cy="180" r="8" fill="#243c44"/><circle cx="223" cy="180" r="8" fill="#243c44"/>
+  <path d="M175 225q25 18 50 0" fill="none" stroke="#db7863" stroke-width="7" stroke-linecap="round"/>
+  <text x="200" y="445" text-anchor="middle" font-family="Arial" font-size="20" fill="#fff">صورة القديسة مريم</text>
+</svg>
