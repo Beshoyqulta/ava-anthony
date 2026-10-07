@@ -114,7 +114,7 @@
     const signinTab=document.querySelector('#signin-tab');
     const signupTab=document.querySelector('#signup-tab');
     function showAuth(mode){const signIn=mode==='signin';signinForm.style.display=signIn?'block':'none';signupForm.style.display=signIn?'none':'block';signinTab.classList.toggle('active',signIn);signupTab.classList.toggle('active',!signIn)}
-    const API_BASE=window.AVA_API_URL||'http://localhost:5000/api';
+    const API_BASE=window.AVA_API_URL||'https://ava-anthony-api.onrender.com/api';
     async function apiRequest(path,options={}){const headers={'Content-Type':'application/json',...(options.headers||{})};const token=localStorage.getItem('ava-anthony-token');if(token)headers.Authorization=`Bearer ${token}`;const response=await fetch(`${API_BASE}${path}`,{...options,headers});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'تعذر الاتصال بالخادم');return data}
     function startSession(nextRole){role=nextRole;document.body.classList.remove('auth-active');document.body.classList.add('session-active');authScreen.style.display='none';renderRole()}
     function errorBox(id,message){const box=document.querySelector(id);box.textContent=message;box.classList.add('show');setTimeout(()=>box.classList.remove('show'),3500)}
