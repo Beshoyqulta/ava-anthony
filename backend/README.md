@@ -20,8 +20,9 @@ Important: change `JWT_SECRET` in `.env` before using real data.
 
 ## Main endpoints
 
-- `POST /api/auth/signup` — create a student or pending admin account
+- `POST /api/auth/signup` — create a student or admin account
 - `POST /api/auth/login` — receive a JWT token
+- `POST /api/auth/forgot-password` — reset a password using phone and birthday until SMS OTP is connected
 - `GET /api/me` — current account
 - `GET /api/badges` — active badge catalog
 - `POST /api/badges` — admin/super-admin badge creation

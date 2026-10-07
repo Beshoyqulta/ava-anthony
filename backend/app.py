@@ -221,6 +221,21 @@ def login():
     return jsonify(token=token_for(user), user=user_json(user))
 
 
+@app.post("/api/auth/forgot-password")
+def forgot_password():
+    """Temporary self-service reset until SMS/OTP delivery is connected."""
+    data = request.get_json(silent=True) or {}
+    phone = normalize_phone(data.get("phone_number"))
+    birthday = parse_date(data.get("birthday"))
+    new_password = data.get("new_password", "")
+    user = User.query.filter_by(phone_number=phone).first()
+    if not user or not birthday or user.birthday != birthday or len(new_password) < 8:
+        return jsonify(error="بيانات استعادة الحساب غير صحيحة"), 400
+    user.password_hash = generate_password_hash(new_password, method="pbkdf2:sha256")
+    db.session.commit()
+    return jsonify(message="تم تغيير كلمة المرور بنجاح")
+
+
 @app.get("/api/me")
 @require_roles("admin", "student")
 def me(user):
