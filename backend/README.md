@@ -16,7 +16,7 @@ python app.py
 
 The API runs at `http://localhost:5000`.
 
-Important: change `SUPER_ADMIN_PASSWORD` and `JWT_SECRET` in `.env` before using real data.
+Important: change `JWT_SECRET` in `.env` before using real data.
 
 ## Main endpoints
 
@@ -28,7 +28,6 @@ Important: change `SUPER_ADMIN_PASSWORD` and `JWT_SECRET` in `.env` before using
 - `POST /api/badges/redeem` — student QR redemption
 - `GET /api/students` — admin/super-admin student list
 - `GET /api/admins` — super-admin admin list
-- `POST /api/admins/<id>/approve` — super-admin approval
 - `GET /api/leaderboard` — leaderboard
 - `POST /api/attendance` — admin attendance recording
 - `GET /api/attendance` — attendance records
@@ -57,9 +56,6 @@ Recommended pilot setup:
 DATABASE_URL=your-supabase-postgres-connection-string
 JWT_SECRET=a-long-random-secret
 FRONTEND_ORIGIN=https://your-github-pages-domain
-SUPER_ADMIN_PHONE=201xxxxxxxxx
-SUPER_ADMIN_PASSWORD=a-strong-password
-SUPER_ADMIN_NAME=اسم السوبر خادم
 ```
 
 8. Deploy once. On startup the API creates the tables and seeds the super-admin account and the eight default الطايوهات.

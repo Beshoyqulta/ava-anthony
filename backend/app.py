@@ -55,9 +55,6 @@ class Admin(db.Model):
     __tablename__ = "admins"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True, nullable=False)
-    approval_status = db.Column(db.String(24), default="pending", nullable=False)
-    approved_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    approved_at = db.Column(db.DateTime, nullable=True)
     user = db.relationship("User", foreign_keys=[user_id], backref=db.backref("admin_profile", uselist=False))
 
 
@@ -193,15 +190,15 @@ def signup():
         return jsonify(error="الاسم ورقم الهاتف وكلمة مرور من 8 أحرف مطلوبة"), 400
     if User.query.filter_by(phone_number=phone).first():
         return jsonify(error="رقم الهاتف مستخدم بالفعل"), 409
-    user = User(full_name=name, phone_number=phone, birthday=parse_date(data.get("birthday")), password_hash=generate_password_hash(password, method="pbkdf2:sha256"), role=role, status="active" if role == "student" else "pending")
+    user = User(full_name=name, phone_number=phone, birthday=parse_date(data.get("birthday")), password_hash=generate_password_hash(password, method="pbkdf2:sha256"), role=role, status="active")
     db.session.add(user)
     db.session.flush()
     if role == "student":
         db.session.add(Student(user_id=user.id))
     else:
-        db.session.add(Admin(user_id=user.id, approval_status="pending"))
+        db.session.add(Admin(user_id=user.id))
     db.session.commit()
-    return jsonify(message="تم إنشاء حساب المخدوم" if role == "student" else "تم إرسال طلب الخادم للموافقة", user=user_json(user)), 201
+    return jsonify(message="تم إنشاء حساب المخدوم" if role == "student" else "تم إنشاء حساب الخادم", user=user_json(user)), 201
 
 
 @app.post("/api/auth/login")
@@ -210,25 +207,25 @@ def login():
     user = User.query.filter_by(phone_number=normalize_phone(data.get("phone_number"))).first()
     if not user or not check_password_hash(user.password_hash, data.get("password", "")):
         return jsonify(error="رقم الهاتف أو كلمة المرور غير صحيح"), 401
-    if user.status != "active":
-        return jsonify(error="الحساب في انتظار موافقة السوبر خادم"), 403
+    if user.status != "active" or user.role not in {"admin", "student"}:
+        return jsonify(error="الحساب غير مفعل"), 403
     return jsonify(token=token_for(user), user=user_json(user))
 
 
 @app.get("/api/me")
-@require_roles("super_admin", "admin", "student")
+@require_roles("admin", "student")
 def me(user):
     return jsonify(user=user_json(user), student=student_json(user.student_profile) if user.student_profile else None)
 
 
 @app.get("/api/badges")
-@require_roles("super_admin", "admin", "student")
+@require_roles("admin", "student")
 def badges(_user):
     return jsonify(badges=[badge_json(b) for b in Badge.query.filter_by(is_active=True).order_by(Badge.id).all()])
 
 
 @app.post("/api/badges")
-@require_roles("super_admin", "admin")
+@require_roles("admin")
 def create_badge(user):
     data = request.get_json(silent=True) or {}
     name, points = data.get("name", "").strip(), int(data.get("points", 0))
@@ -260,13 +257,13 @@ def redeem_badge(user):
 
 
 @app.get("/api/students")
-@require_roles("super_admin", "admin")
+@require_roles("admin")
 def students(_user):
     return jsonify(students=[student_json(s) for s in Student.query.join(User).order_by(User.full_name).all()])
 
 
 @app.get("/api/students/<int:student_id>")
-@require_roles("super_admin", "admin", "student")
+@require_roles("admin", "student")
 def student_detail(user, student_id):
     student = db.session.get(Student, student_id)
     if not student or (user.role == "student" and user.student_profile.id != student_id):
@@ -276,33 +273,21 @@ def student_detail(user, student_id):
 
 
 @app.get("/api/admins")
-@require_roles("super_admin")
+@require_roles("admin")
 def admins(_user):
     rows = Admin.query.join(User, Admin.user_id == User.id).order_by(User.full_name).all()
-    return jsonify(admins=[{**user_json(a.user), "admin_id": a.id, "approval_status": a.approval_status, "approved_at": a.approved_at.isoformat() if a.approved_at else None} for a in rows])
-
-
-@app.post("/api/admins/<int:admin_id>/approve")
-@require_roles("super_admin")
-def approve_admin(user, admin_id):
-    admin = db.session.get(Admin, admin_id)
-    if not admin:
-        return jsonify(error="الخادم غير موجود"), 404
-    admin.approval_status, admin.approved_by, admin.approved_at = "approved", user.id, datetime.now(timezone.utc)
-    admin.user.status = "active"
-    db.session.commit()
-    return jsonify(message="تمت الموافقة على حساب الخادم", admin_id=admin.id)
+    return jsonify(admins=[{**user_json(a.user), "admin_id": a.id} for a in rows])
 
 
 @app.get("/api/leaderboard")
-@require_roles("super_admin", "admin", "student")
+@require_roles("admin", "student")
 def leaderboard(_user):
     rows = Student.query.join(User).order_by(Student.total_points.desc(), User.full_name.asc()).all()
     return jsonify(leaderboard=[{"rank": i + 1, "student_id": s.id, "name": s.user.full_name, "points": s.total_points, "badges": s.badge_count} for i, s in enumerate(rows)])
 
 
 @app.post("/api/attendance")
-@require_roles("super_admin", "admin")
+@require_roles("admin")
 def record_attendance(user):
     data = request.get_json(silent=True) or {}
     student, class_date, status = db.session.get(Student, data.get("student_id")), parse_date(data.get("class_date")), data.get("status")
@@ -317,7 +302,7 @@ def record_attendance(user):
 
 
 @app.get("/api/attendance")
-@require_roles("super_admin", "admin", "student")
+@require_roles("admin", "student")
 def attendance(user):
     query = Attendance.query
     if user.role == "student":
@@ -328,15 +313,10 @@ def attendance(user):
 
 def seed_database():
     db.create_all()
-    super_phone = normalize_phone(os.getenv("SUPER_ADMIN_PHONE", "201000000000"))
-    super_admin = User.query.filter_by(phone_number=super_phone).first()
-    if not super_admin:
-        super_admin = User(full_name=os.getenv("SUPER_ADMIN_NAME", "مدير النظام"), phone_number=super_phone, password_hash=generate_password_hash(os.getenv("SUPER_ADMIN_PASSWORD", "change-me-now"), method="pbkdf2:sha256"), role="super_admin", status="active")
-        db.session.add(super_admin)
     for name, reason, points, code, image, message in BADGE_SEED:
         badge = Badge.query.filter_by(code=code).first()
         if not badge:
-            db.session.add(Badge(name=name, reason=reason, points=points, code=code, image_path=image, claim_message=message, created_by=super_admin.id if super_admin.id else None))
+            db.session.add(Badge(name=name, reason=reason, points=points, code=code, image_path=image, claim_message=message))
     db.session.commit()
 
 
