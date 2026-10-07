@@ -61,6 +61,9 @@ class Admin(db.Model):
     __tablename__ = "admins"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True, nullable=False)
+    # Legacy database column kept populated for compatibility with databases
+    # created before the approval workflow was removed.
+    approval_status = db.Column(db.String(24), default="approved", nullable=False)
     user = db.relationship("User", foreign_keys=[user_id], backref=db.backref("admin_profile", uselist=False))
 
 
@@ -202,7 +205,7 @@ def signup():
     if role == "student":
         db.session.add(Student(user_id=user.id))
     else:
-        db.session.add(Admin(user_id=user.id))
+        db.session.add(Admin(user_id=user.id, approval_status="approved"))
     db.session.commit()
     return jsonify(message="تم إنشاء حساب المخدوم" if role == "student" else "تم إنشاء حساب الخادم", user=user_json(user)), 201
 
