@@ -26,7 +26,9 @@ Important: change `JWT_SECRET` in `.env` before using real data.
 - `GET /api/me` — current account
 - `GET /api/badges` — active badge catalog
 - `POST /api/badges` — admin/super-admin badge creation
-- `POST /api/badges/redeem` — student QR redemption
+- `POST /api/qr-sessions` — open a live QR session for a catalog طايو (admin)
+- `POST /api/qr-sessions/<token>/close` — close the live QR session (admin)
+- `POST /api/badges/redeem` — student redemption using the active session token
 - `GET /api/students` — admin/super-admin student list
 - `GET /api/admins` — super-admin admin list
 - `GET /api/leaderboard` — leaderboard
@@ -59,7 +61,7 @@ JWT_SECRET=a-long-random-secret
 FRONTEND_ORIGIN=https://your-github-pages-domain
 ```
 
-8. Deploy once. On startup the API creates the tables and seeds the super-admin account and the eight default الطايوهات.
+8. Deploy once. On startup the API creates the tables and seeds the eight default الطايوهات.
 9. Update `API_BASE` in the frontend from `http://localhost:5000/api` to your Render API URL followed by `/api`.
 10. Publish the frontend files on GitHub Pages or as a Render Static Site.
 

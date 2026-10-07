@@ -116,6 +116,20 @@ class QRScan(db.Model):
     scanned_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
+class QRSession(db.Model):
+    """A short-lived QR display opened by a خادم for one catalog طايو."""
+    __tablename__ = "qr_sessions"
+    id = db.Column(db.Integer, primary_key=True)
+    badge_id = db.Column(db.Integer, db.ForeignKey("badges.id"), nullable=False)
+    opened_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    token = db.Column(db.String(96), unique=True, nullable=False, index=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    opened_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_seen_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    closed_at = db.Column(db.DateTime, nullable=True)
+    badge = db.relationship("Badge")
+
+
 BADGE_SEED = [
     ("أهلًا بيك", "للحضور", 1, "BADGE-001", "assets/badges/hello-jesus.jpg", "الخدمة نورت"),
     ("برافو عليك", "للمشاركة أثناء الفصل", 5, "BADGE-002", "assets/badges/good-job-peter.jpg", "الله ينور"),
@@ -265,7 +279,17 @@ def create_badge(user):
 @require_roles("student")
 def redeem_badge(user):
     data = request.get_json(silent=True) or {}
-    badge = Badge.query.filter_by(code=str(data.get("code", "")).upper(), is_active=True).first()
+    session_token = str(data.get("session_token", "")).strip()
+    session = QRSession.query.filter_by(token=session_token, is_active=True).first() if session_token else None
+    last_seen = session.last_seen_at.replace(tzinfo=timezone.utc) if session and session.last_seen_at.tzinfo is None else (session.last_seen_at if session else None)
+    if session and last_seen < datetime.now(timezone.utc) - timedelta(seconds=60):
+        session.is_active = False
+        session.closed_at = datetime.now(timezone.utc)
+        db.session.commit()
+        session = None
+    if not session:
+        return jsonify(error="جلسة الـ QR غير مفتوحة أو انتهت"), 410
+    badge = session.badge if session.badge and session.badge.is_active else None
     student = user.student_profile
     if not badge or not student:
         return jsonify(error="كود الطايو غير صحيح"), 404
@@ -278,6 +302,45 @@ def redeem_badge(user):
     student.badge_count += 1
     db.session.commit()
     return jsonify(message=badge.claim_message or "الخدمة نورت", points_added=badge.points, total_points=student.total_points, badge=badge_json(badge))
+
+
+@app.post("/api/qr-sessions")
+@require_roles("admin")
+def open_qr_session(user):
+    data = request.get_json(silent=True) or {}
+    badge = db.session.get(Badge, data.get("badge_id"))
+    if not badge or not badge.is_active:
+        return jsonify(error="الطايو غير موجود"), 404
+    # A خادم can display only one active QR at a time. Opening another one
+    # automatically closes the previous display.
+    QRSession.query.filter_by(opened_by=user.id, is_active=True).update({"is_active": False, "closed_at": datetime.now(timezone.utc)})
+    session = QRSession(badge_id=badge.id, opened_by=user.id, token=secrets.token_urlsafe(32))
+    db.session.add(session)
+    db.session.commit()
+    return jsonify(session={"id": session.id, "token": session.token, "badge": badge_json(badge), "is_active": True}), 201
+
+
+@app.post("/api/qr-sessions/<string:token>/close")
+@require_roles("admin")
+def close_qr_session(user, token):
+    session = QRSession.query.filter_by(token=token, opened_by=user.id, is_active=True).first()
+    if not session:
+        return jsonify(error="جلسة QR غير موجودة أو مغلقة بالفعل"), 404
+    session.is_active = False
+    session.closed_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify(message="تم إغلاق كود QR")
+
+
+@app.post("/api/qr-sessions/<string:token>/heartbeat")
+@require_roles("admin")
+def heartbeat_qr_session(user, token):
+    session = QRSession.query.filter_by(token=token, opened_by=user.id, is_active=True).first()
+    if not session:
+        return jsonify(error="جلسة QR غير موجودة أو مغلقة بالفعل"), 404
+    session.last_seen_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify(is_active=True)
 
 
 @app.get("/api/students")
