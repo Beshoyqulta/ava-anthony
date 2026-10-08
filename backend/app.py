@@ -1,12 +1,15 @@
 import os
 import secrets
+import json
+from io import BytesIO
 from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 from urllib.parse import urlsplit
 
 import jwt
+import qrcode
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import UniqueConstraint
@@ -341,6 +344,29 @@ def heartbeat_qr_session(user, token):
     session.last_seen_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify(is_active=True)
+
+
+@app.get("/api/qr-sessions/<string:token>/image")
+def qr_session_image(token):
+    """Render the active session as a PNG; inactive sessions cannot render."""
+    session = QRSession.query.filter_by(token=token, is_active=True).first()
+    last_seen = session.last_seen_at.replace(tzinfo=timezone.utc) if session and session.last_seen_at.tzinfo is None else (session.last_seen_at if session else None)
+    if not session or last_seen < datetime.now(timezone.utc) - timedelta(seconds=60):
+        if session:
+            session.is_active = False
+            session.closed_at = datetime.now(timezone.utc)
+            db.session.commit()
+        return jsonify(error="جلسة QR غير مفتوحة"), 404
+
+    payload = {"type": "ava-anthony-qr", "session_token": session.token}
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=4)
+    qr.add_data(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="black", back_color="white")
+    output = BytesIO()
+    image.save(output, format="PNG")
+    output.seek(0)
+    return send_file(output, mimetype="image/png", max_age=0)
 
 
 @app.get("/api/students")
