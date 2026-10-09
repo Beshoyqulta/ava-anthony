@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import UniqueConstraint, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 load_dotenv()
@@ -93,7 +93,6 @@ class StudentBadge(db.Model):
     points_awarded = db.Column(db.Integer, nullable=False)
     awarded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     note = db.Column(db.String(255), nullable=True)
-    __table_args__ = (UniqueConstraint("student_id", "badge_id", name="uq_student_badge_once"),)
     student = db.relationship("Student")
     badge = db.relationship("Badge")
 
@@ -141,7 +140,7 @@ BADGE_SEED = [
     ("عيد ميلاد سعيد", "في عيد ميلاد المخدوم", 30, "BADGE-005", "assets/badges/birthday.jpg", "كل سنة وإنت ماشي مع يسوع"),
     ("حضور القداس", "لحضور القداس", 5, "BADGE-006", "assets/badges/mass-mark.jpg", "تعيش وتصلي"),
     ("شماس أمين", "للخدمة كشماس", 5, "BADGE-007", "assets/badges/deacon-stephen.jpg", "تعيش وتخدم"),
-    ("تعيشي وتحضري بدري", "للحضور المبكر — مخصصة للبنات", 5, "BADGE-008", "assets/badges/hello-mary.jpg", "تعيشي وتحضري بدري"),
+    ("تعيشي وتحضري بدري", "للحضور المبكر — مخصصة للبنات", 5, "BADGE-008", "assets/badges/hello-mary.jpg", "تعيش وتصلي"),
 ]
 
 
@@ -296,8 +295,6 @@ def redeem_badge(user):
     student = user.student_profile
     if not badge or not student:
         return jsonify(error="كود الطايو غير صحيح"), 404
-    if StudentBadge.query.filter_by(student_id=student.id, badge_id=badge.id).first():
-        return jsonify(error="تم استلام هذا الطايو من قبل"), 409
     award = StudentBadge(student_id=student.id, badge_id=badge.id, awarded_by=user.id, points_awarded=badge.points, note=data.get("note"))
     db.session.add(award)
     db.session.add(QRScan(badge_id=badge.id, student_id=student.id, status="success"))
@@ -430,11 +427,29 @@ def seed_database():
         badge = Badge.query.filter_by(code=code).first()
         if not badge:
             db.session.add(Badge(name=name, reason=reason, points=points, code=code, image_path=image, claim_message=message))
+        else:
+            badge.claim_message = message
+            badge.name = name
+            badge.reason = reason
+            badge.points = points
+            badge.image_path = image
     db.session.commit()
+
+
+def migrate_legacy_schema():
+    """Remove the old one-award-per-badge constraint from deployed databases."""
+    if db.engine.dialect.name != "postgresql":
+        return
+    try:
+        db.session.execute(text("ALTER TABLE student_badges DROP CONSTRAINT IF EXISTS uq_student_badge_once"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 with app.app_context():
     seed_database()
+    migrate_legacy_schema()
 
 
 if __name__ == "__main__":
