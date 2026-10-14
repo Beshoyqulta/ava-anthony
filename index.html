@@ -55,7 +55,7 @@
       </nav>
     </aside>
     <main>
-      <header class="topbar"><div><p class="eyebrow">صباح الخير</p><h1 id="page-title">نظرة عامة على مدارس الأحد</h1></div><div class="top-actions"><span class="date-chip">الأحد · 12 أكتوبر 2026</span><button class="bell" aria-label="الإشعارات">♧<span class="bell-dot"></span></button><div class="avatar">أس</div></div></header>
+      <header class="topbar"><div><p class="eyebrow">صباح الخير</p><h1 id="page-title">نظرة عامة على مدارس الأحد</h1></div><div class="top-actions"><span class="date-chip" id="live-date">التاريخ</span><button class="bell" aria-label="الإشعارات">♧<span class="bell-dot"></span></button><div class="avatar">أس</div></div></header>
       <section class="hero"><div class="hero-copy"><h2>كل أحد له أثر.</h2><p>مع أبونا أنطونيوس، نتابع حضور أولادنا، نلاحظ الخير فيهم، ونفرح بكل خطوة في طريقهم.</p><button class="primary" id="record-btn">＋ تسجيل حضور اليوم</button></div><div class="saint"><img src="assets/abba-anthony.png" alt="صورة القديس الأنبا أنطونيوس" /><span class="saint-caption">الأنبا أنطونيوس</span></div></section>
       <div class="section-head"><h3>هذا الشهر في لمحة</h3><button>عرض التقرير الكامل ←</button></div>
       <section class="stats"><div class="stat"><div class="stat-top"><span>الحاضرون اليوم</span><span class="stat-icon">✓</span></div><strong>٤٢ <small>+٨٪</small></strong></div><div class="stat"><div class="stat-top"><span>الطلاب النشطون</span><span class="stat-icon">♧</span></div><strong>٤٨</strong></div><div class="stat"><div class="stat-top"><span>النقاط الممنوحة</span><span class="stat-icon">✦</span></div><strong>١٬٢٨٠ <small>+١٢٪</small></strong></div><div class="stat"><div class="stat-top"><span>المكافآت المستلمة</span><span class="stat-icon">◎</span></div><strong>١٨</strong></div></section>
@@ -134,6 +134,8 @@
     let qrCameraStream=null;
     let qrCameraTimer=null;
     function timeGreeting(){const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'Africa/Cairo',hour:'numeric',hour12:false}).format(new Date()));return hour<12?'صباح الخير':'مساء الخير'}
+    function updateLiveDate(){const parts=new Intl.DateTimeFormat('ar-EG',{timeZone:'Africa/Cairo',weekday:'long',day:'numeric',month:'long',year:'numeric'}).formatToParts(new Date());const value=key=>parts.find(part=>part.type===key)?.value||'';document.querySelector('#live-date').textContent=`${value('weekday')} · ${englishDigits(value('day'))} ${value('month')} ${englishDigits(value('year'))}`}
+    updateLiveDate();setInterval(updateLiveDate,60000);
     const englishDigits=value=>String(value).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
     const publicAsset=path=>path&&path.startsWith('assets/')?path:`assets/badges/hello-jesus.jpg`;
     function liveBadgeCards(counts={}){return liveBadges.map(b=>{const count=Number(counts[b.id]||0);return `<div class="badge-card"><span class="badge-points">${englishDigits(b.points)} نقطة</span><img src="${publicAsset(b.image_path)}" alt="${esc(b.name)}"><div class="badge-info"><strong>${esc(b.name)}</strong><small>${esc(b.reason||'طايو تشجيع')}</small><small style="display:block;color:var(--coral);font-weight:700;margin-top:5px">حصلت عليه ${englishDigits(count)} مرة</small></div></div>`}).join('')}
