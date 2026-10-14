@@ -1,6 +1,7 @@
 import os
 import secrets
 import json
+import re
 from io import BytesIO
 from datetime import date, datetime, timedelta, timezone
 from functools import wraps
@@ -166,6 +167,11 @@ def normalize_phone(phone):
     return value
 
 
+def valid_phone_input(phone):
+    raw = str(phone or "").strip()
+    return bool(re.fullmatch(r"\+?[0-9][0-9\s-]*", raw))
+
+
 def parse_date(value):
     return date.fromisoformat(value) if value else None
 
@@ -224,7 +230,7 @@ def signup():
     requested_role = data.get("role", "student")
     if requested_role != "student":
         return jsonify(error="إنشاء حسابات الخدام يتم يدويًا فقط"), 403
-    if not name or not phone or len(password) < 8:
+    if not name or not valid_phone_input(data.get("phone_number")) or not phone or len(password) < 8:
         return jsonify(error="الاسم ورقم الهاتف وكلمة مرور من 8 أحرف مطلوبة"), 400
     if User.query.filter_by(phone_number=phone).first():
         return jsonify(error="رقم الهاتف مستخدم بالفعل"), 409
@@ -239,6 +245,8 @@ def signup():
 @app.post("/api/auth/login")
 def login():
     data = request.get_json(silent=True) or {}
+    if not valid_phone_input(data.get("phone_number")):
+        return jsonify(error="استخدم أرقام الهاتف الإنجليزية فقط"), 400
     user = User.query.filter_by(phone_number=normalize_phone(data.get("phone_number"))).first()
     if not user or not check_password_hash(user.password_hash, data.get("password", "")):
         return jsonify(error="رقم الهاتف أو كلمة المرور غير صحيح"), 401
@@ -255,7 +263,7 @@ def forgot_password():
     birthday = parse_date(data.get("birthday"))
     new_password = data.get("new_password", "")
     user = User.query.filter_by(phone_number=phone).first()
-    if not user or not birthday or user.birthday != birthday or len(new_password) < 8:
+    if not valid_phone_input(data.get("phone_number")) or not user or not birthday or user.birthday != birthday or len(new_password) < 8:
         return jsonify(error="بيانات استعادة الحساب غير صحيحة"), 400
     user.password_hash = generate_password_hash(new_password, method="pbkdf2:sha256")
     db.session.commit()
