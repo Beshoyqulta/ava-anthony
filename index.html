@@ -135,8 +135,8 @@
     let qrCameraTimer=null;
     function timeGreeting(){const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'Africa/Cairo',hour:'numeric',hour12:false}).format(new Date()));return hour<12?'صباح الخير':'مساء الخير'}
     function updateLiveDate(){const parts=new Intl.DateTimeFormat('ar-EG',{timeZone:'Africa/Cairo',weekday:'long',day:'numeric',month:'long',year:'numeric'}).formatToParts(new Date());const value=key=>parts.find(part=>part.type===key)?.value||'';document.querySelector('#live-date').textContent=`${value('weekday')} · ${englishDigits(value('day'))} ${value('month')} ${englishDigits(value('year'))}`}
-    updateLiveDate();setInterval(updateLiveDate,60000);
     const englishDigits=value=>String(value).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+    updateLiveDate();setInterval(updateLiveDate,60000);
     const publicAsset=path=>path&&path.startsWith('assets/')?path:`assets/badges/hello-jesus.jpg`;
     function liveBadgeCards(counts={}){return liveBadges.map(b=>{const count=Number(counts[b.id]||0);return `<div class="badge-card"><span class="badge-points">${englishDigits(b.points)} نقطة</span><img src="${publicAsset(b.image_path)}" alt="${esc(b.name)}"><div class="badge-info"><strong>${esc(b.name)}</strong><small>${esc(b.reason||'طايو تشجيع')}</small><small style="display:block;color:var(--coral);font-weight:700;margin-top:5px">حصلت عليه ${englishDigits(count)} مرة</small></div></div>`}).join('')}
     async function renderLiveAdmin(){
