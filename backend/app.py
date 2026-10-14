@@ -36,7 +36,18 @@ if frontend_origin != "*":
     parsed_origin = urlsplit(frontend_origin)
     if parsed_origin.scheme and parsed_origin.netloc:
         frontend_origin = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
-CORS(app, resources={r"/api/*": {"origins": frontend_origin}})
+cors_options = {
+    "origins": frontend_origin,
+    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"],
+}
+CORS(app, resources={r"/api/*": cors_options})
+
+
+@app.before_request
+def handle_api_preflight():
+    if request.method == "OPTIONS" and request.path.startswith("/api/"):
+        return ("", 204)
 
 
 class User(db.Model):
@@ -210,20 +221,19 @@ def health():
 def signup():
     data = request.get_json(silent=True) or {}
     name, phone, password = data.get("full_name", "").strip(), normalize_phone(data.get("phone_number")), data.get("password", "")
-    role = data.get("role", "student")
-    if not name or not phone or len(password) < 8 or role not in {"student", "admin"}:
+    requested_role = data.get("role", "student")
+    if requested_role != "student":
+        return jsonify(error="إنشاء حسابات الخدام يتم يدويًا فقط"), 403
+    if not name or not phone or len(password) < 8:
         return jsonify(error="الاسم ورقم الهاتف وكلمة مرور من 8 أحرف مطلوبة"), 400
     if User.query.filter_by(phone_number=phone).first():
         return jsonify(error="رقم الهاتف مستخدم بالفعل"), 409
-    user = User(full_name=name, phone_number=phone, birthday=parse_date(data.get("birthday")), password_hash=generate_password_hash(password, method="pbkdf2:sha256"), role=role, status="active")
+    user = User(full_name=name, phone_number=phone, birthday=parse_date(data.get("birthday")), password_hash=generate_password_hash(password, method="pbkdf2:sha256"), role="student", status="active")
     db.session.add(user)
     db.session.flush()
-    if role == "student":
-        db.session.add(Student(user_id=user.id))
-    else:
-        db.session.add(Admin(user_id=user.id, approval_status="approved"))
+    db.session.add(Student(user_id=user.id))
     db.session.commit()
-    return jsonify(message="تم إنشاء حساب المخدوم" if role == "student" else "تم إنشاء حساب الخادم", user=user_json(user)), 201
+    return jsonify(message="تم إنشاء حساب المخدوم", user=user_json(user)), 201
 
 
 @app.post("/api/auth/login")
