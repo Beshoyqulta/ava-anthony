@@ -193,7 +193,7 @@ def badge_json(badge):
 def award_birthday_badge_if_due(user):
     """Award the birthday طايو once per Sunday-school year after its birthday."""
     if user.role != "student" or not user.birthday or not user.student_profile:
-        return False
+        return None
 
     today = datetime.now(ZoneInfo("Africa/Cairo")).date()
     school_year_start = date(today.year, 9, 21)
@@ -206,16 +206,16 @@ def award_birthday_badge_if_due(user):
         user.birthday.day,
     )
     if birthday_this_cycle < school_year_start or birthday_this_cycle > today:
-        return False
+        return None
 
     school_year_label = f"{school_year_start.year}-{school_year_start.year + 1}"
     note = f"birthday:auto:{school_year_label}"
     if StudentBadge.query.filter_by(student_id=user.student_profile.id, note=note).first():
-        return False
+        return None
 
     badge = Badge.query.filter_by(code="BADGE-005", is_active=True).first()
     if not badge:
-        return False
+        return None
 
     student = user.student_profile
     db.session.add(StudentBadge(
@@ -228,7 +228,7 @@ def award_birthday_badge_if_due(user):
     student.total_points += badge.points
     student.badge_count += 1
     db.session.commit()
-    return True
+    return badge
 
 
 def token_for(user):
@@ -295,8 +295,13 @@ def login():
         return jsonify(error="رقم الهاتف أو كلمة المرور غير صحيح"), 401
     if user.status != "active" or user.role not in {"admin", "student"}:
         return jsonify(error="الحساب غير مفعل"), 403
-    award_birthday_badge_if_due(user)
-    return jsonify(token=token_for(user), user=user_json(user))
+    birthday_badge = award_birthday_badge_if_due(user)
+    return jsonify(
+        token=token_for(user),
+        user=user_json(user),
+        birthday_awarded=bool(birthday_badge),
+        birthday_badge=badge_json(birthday_badge) if birthday_badge else None,
+    )
 
 
 @app.post("/api/auth/forgot-password")
