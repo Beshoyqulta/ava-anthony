@@ -6,6 +6,7 @@ from io import BytesIO
 from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 import jwt
 import qrcode
@@ -189,6 +190,47 @@ def badge_json(badge):
     return {"id": badge.id, "name": badge.name, "reason": badge.reason, "points": badge.points, "code": badge.code, "image_path": badge.image_path, "claim_message": badge.claim_message, "is_active": badge.is_active}
 
 
+def award_birthday_badge_if_due(user):
+    """Award the birthday طايو once per Sunday-school year after its birthday."""
+    if user.role != "student" or not user.birthday or not user.student_profile:
+        return False
+
+    today = datetime.now(ZoneInfo("Africa/Cairo")).date()
+    school_year_start = date(today.year, 9, 21)
+    if today < school_year_start:
+        school_year_start = date(today.year - 1, 9, 21)
+
+    birthday_this_cycle = date(
+        school_year_start.year if user.birthday.month >= 9 else school_year_start.year + 1,
+        user.birthday.month,
+        user.birthday.day,
+    )
+    if birthday_this_cycle < school_year_start or birthday_this_cycle > today:
+        return False
+
+    school_year_label = f"{school_year_start.year}-{school_year_start.year + 1}"
+    note = f"birthday:auto:{school_year_label}"
+    if StudentBadge.query.filter_by(student_id=user.student_profile.id, note=note).first():
+        return False
+
+    badge = Badge.query.filter_by(code="BADGE-005", is_active=True).first()
+    if not badge:
+        return False
+
+    student = user.student_profile
+    db.session.add(StudentBadge(
+        student_id=student.id,
+        badge_id=badge.id,
+        awarded_by=None,
+        points_awarded=badge.points,
+        note=note,
+    ))
+    student.total_points += badge.points
+    student.badge_count += 1
+    db.session.commit()
+    return True
+
+
 def token_for(user):
     payload = {"sub": str(user.id), "role": user.role, "exp": datetime.now(timezone.utc) + timedelta(hours=24)}
     return jwt.encode(payload, app.config["JWT_SECRET"], algorithm="HS256")
@@ -253,6 +295,7 @@ def login():
         return jsonify(error="رقم الهاتف أو كلمة المرور غير صحيح"), 401
     if user.status != "active" or user.role not in {"admin", "student"}:
         return jsonify(error="الحساب غير مفعل"), 403
+    award_birthday_badge_if_due(user)
     return jsonify(token=token_for(user), user=user_json(user))
 
 
@@ -274,6 +317,7 @@ def forgot_password():
 @app.get("/api/me")
 @require_roles("admin", "student")
 def me(user):
+    award_birthday_badge_if_due(user)
     return jsonify(user=user_json(user), student=student_json(user.student_profile) if user.student_profile else None)
 
 
