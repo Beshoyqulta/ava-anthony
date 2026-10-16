@@ -32,6 +32,13 @@ app.config.update(
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     JWT_SECRET=os.getenv("JWT_SECRET", "development-only-secret"),
 )
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 240,
+    "pool_timeout": 30,
+    "pool_size": 3,
+    "max_overflow": 5,
+}
 db = SQLAlchemy(app)
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "*")
 if frontend_origin != "*":
