@@ -157,7 +157,7 @@ BADGE_SEED = [
     ("برافو عليك", "للمشاركة أثناء الفصل", 5, "BADGE-002", "assets/badges/good-job-peter.jpg", "الله ينور"),
     ("عندك موهبة", "لعمل شيء استثنائي", 25, "BADGE-003", "assets/badges/talent-luke-icon.jpg", "اهتم بموهبتك"),
     ("وحشتنا", "عند الغياب أسبوعين متتاليين", 2, "BADGE-004", "assets/badges/miss-you.jpg", "وحشتنا"),
-    ("عيد ميلاد سعيد", "في عيد ميلاد المخدوم", 30, "BADGE-005", "assets/badges/birthday.jpg", "كل سنة وإنت ماشي مع يسوع"),
+    ("عيد ميلاد سعيد", "في عيد ميلاد المخدوم", 30, "BADGE-005", "assets/badges/birthday.avif", "كل سنة وإنت ماشي مع يسوع"),
     ("حضور القداس", "لحضور القداس", 5, "BADGE-006", "assets/badges/mass-mark.jpg", "تعيش وتصلي"),
     ("شماس أمين", "للخدمة كشماس", 5, "BADGE-007", "assets/badges/deacon-stephen.jpg", "تعيش وتخدم"),
     ("تعيشي وتحضري بدري", "للحضور المبكر — مخصصة للبنات", 5, "BADGE-008", "assets/badges/hello-mary.jpg", "تعيش وتصلي"),
