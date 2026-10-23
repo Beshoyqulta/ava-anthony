@@ -30,6 +30,8 @@ Important: change `JWT_SECRET` in `.env` before using real data.
 - `POST /api/qr-sessions/<token>/close` — close the live QR session (admin)
 - `POST /api/badges/redeem` — student redemption using the active session token
 - `GET /api/students` — admin/super-admin student list
+- `POST /api/students/<id>/points` — admin gives or removes points: `{"points": 10, "reason": "..."}`
+- `GET /api/students/<id>/points` — admin point-award history
 - `GET /api/admins` — super-admin admin list
 - `GET /api/leaderboard` — leaderboard
 - `POST /api/attendance` — admin attendance recording

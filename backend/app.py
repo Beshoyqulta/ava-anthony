@@ -117,6 +117,19 @@ class StudentBadge(db.Model):
     badge = db.relationship("Badge")
 
 
+class PointAward(db.Model):
+    """Manual point adjustments made by a member of the admin team."""
+    __tablename__ = "point_awards"
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False)
+    awarded_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    points = db.Column(db.Integer, nullable=False)
+    reason = db.Column(db.String(255), nullable=False)
+    awarded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    student = db.relationship("Student")
+    admin = db.relationship("User", foreign_keys=[awarded_by])
+
+
 class Attendance(db.Model):
     __tablename__ = "attendance"
     id = db.Column(db.Integer, primary_key=True)
@@ -456,6 +469,42 @@ def student_detail(user, student_id):
         return jsonify(error="المخدوم غير موجود"), 404
     awards = StudentBadge.query.filter_by(student_id=student_id).order_by(StudentBadge.awarded_at.desc()).all()
     return jsonify(student=student_json(student), badges=[{**badge_json(a.badge), "awarded_at": a.awarded_at.isoformat(), "points_awarded": a.points_awarded} for a in awards])
+
+
+@app.post("/api/students/<int:student_id>/points")
+@require_roles("admin")
+def award_points(user, student_id):
+    data = request.get_json(silent=True) or {}
+    student = db.session.get(Student, student_id)
+    reason = str(data.get("reason", "")).strip()
+    try:
+        points = int(data.get("points", 0))
+    except (TypeError, ValueError):
+        points = 0
+    if not student:
+        return jsonify(error="المخدوم غير موجود"), 404
+    if points == 0 or abs(points) > 10000 or not reason or len(reason) > 255:
+        return jsonify(error="أدخل عدد نقاط غير صفري وسببًا مختصرًا"), 400
+    award = PointAward(student_id=student.id, awarded_by=user.id, points=points, reason=reason)
+    student.total_points += points
+    db.session.add(award)
+    db.session.commit()
+    return jsonify(
+        message="تم تحديث نقاط المخدوم",
+        points_added=points,
+        total_points=student.total_points,
+        award={"id": award.id, "student_id": student.id, "points": award.points, "reason": award.reason, "awarded_at": award.awarded_at.isoformat(), "awarded_by": user.full_name},
+    ), 201
+
+
+@app.get("/api/students/<int:student_id>/points")
+@require_roles("admin")
+def point_history(_user, student_id):
+    student = db.session.get(Student, student_id)
+    if not student:
+        return jsonify(error="المخدوم غير موجود"), 404
+    rows = PointAward.query.filter_by(student_id=student.id).order_by(PointAward.awarded_at.desc()).all()
+    return jsonify(points=[{"id": row.id, "student_id": row.student_id, "points": row.points, "reason": row.reason, "awarded_at": row.awarded_at.isoformat(), "awarded_by": row.admin.full_name} for row in rows])
 
 
 @app.get("/api/admins")
