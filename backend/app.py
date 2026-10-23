@@ -468,7 +468,21 @@ def student_detail(user, student_id):
     if not student or (user.role == "student" and user.student_profile.id != student_id):
         return jsonify(error="المخدوم غير موجود"), 404
     awards = StudentBadge.query.filter_by(student_id=student_id).order_by(StudentBadge.awarded_at.desc()).all()
-    return jsonify(student=student_json(student), badges=[{**badge_json(a.badge), "awarded_at": a.awarded_at.isoformat(), "points_awarded": a.points_awarded} for a in awards])
+    return jsonify(student=student_json(student), badges=[{**badge_json(a.badge), "award_id": a.id, "awarded_at": a.awarded_at.isoformat(), "points_awarded": a.points_awarded} for a in awards])
+
+
+@app.delete("/api/students/<int:student_id>/badges/<int:award_id>")
+@require_roles("admin")
+def remove_student_badge(_user, student_id, award_id):
+    student = db.session.get(Student, student_id)
+    award = db.session.get(StudentBadge, award_id)
+    if not student or not award or award.student_id != student_id:
+        return jsonify(error="الطايو غير موجود لهذا المخدوم"), 404
+    student.total_points -= award.points_awarded
+    student.badge_count = max(0, student.badge_count - 1)
+    db.session.delete(award)
+    db.session.commit()
+    return jsonify(message="تم حذف الطايو", total_points=student.total_points, badge_count=student.badge_count)
 
 
 @app.post("/api/students/<int:student_id>/points")

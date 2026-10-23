@@ -32,6 +32,7 @@ Important: change `JWT_SECRET` in `.env` before using real data.
 - `GET /api/students` — admin/super-admin student list
 - `POST /api/students/<id>/points` — admin gives or removes points: `{"points": 10, "reason": "..."}`
 - `GET /api/students/<id>/points` — admin point-award history
+- `DELETE /api/students/<id>/badges/<award_id>` — admin removes an awarded badge and its points
 - `GET /api/admins` — super-admin admin list
 - `GET /api/leaderboard` — leaderboard
 - `POST /api/attendance` — admin attendance recording
