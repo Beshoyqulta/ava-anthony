@@ -494,8 +494,24 @@ def award_points(user, student_id):
         return jsonify(error="المخدوم غير موجود"), 404
     badge = db.session.get(Badge, data.get("badge_id")) if data.get("badge_id") else None
     if badge and badge.is_active:
-        points = badge.points
-        reason = badge.name
+        award = StudentBadge(
+            student_id=student.id,
+            badge_id=badge.id,
+            awarded_by=user.id,
+            points_awarded=badge.points,
+            note="manual",
+        )
+        student.total_points += badge.points
+        student.badge_count += 1
+        db.session.add(award)
+        db.session.commit()
+        return jsonify(
+            message="تم منح الطايو للمخدوم",
+            points_added=badge.points,
+            total_points=student.total_points,
+            badge_count=student.badge_count,
+            badge=badge_json(badge),
+        ), 201
     else:
         reason = str(data.get("reason", "")).strip()
         try:
@@ -591,9 +607,47 @@ def migrate_legacy_schema():
         db.session.rollback()
 
 
+def migrate_manual_points_to_badges():
+    """Convert older positive manual point records into visible badge awards."""
+    for point_award in PointAward.query.filter(PointAward.points > 0).order_by(PointAward.id).all():
+        marker = f"manual-point-award:{point_award.id}"
+        if StudentBadge.query.filter_by(note=marker).first():
+            continue
+
+        badge = Badge.query.filter_by(name=point_award.reason, points=point_award.points, is_active=True).first()
+        if not badge:
+            badge = Badge(
+                name=(point_award.reason or "نقاط يدوية")[:160],
+                reason="تم تحويلها من نقاط يدوية مسجلة سابقًا",
+                points=point_award.points,
+                code=f"MANUAL-{point_award.id}",
+                claim_message="تم تسجيل الطايو يدويًا",
+                is_active=True,
+                created_by=point_award.awarded_by,
+            )
+            db.session.add(badge)
+            db.session.flush()
+
+        student = db.session.get(Student, point_award.student_id)
+        if not student:
+            continue
+        db.session.add(StudentBadge(
+            student_id=student.id,
+            badge_id=badge.id,
+            awarded_by=point_award.awarded_by,
+            points_awarded=point_award.points,
+            awarded_at=point_award.awarded_at,
+            note=marker,
+        ))
+        # The original PointAward already contributed to total_points.
+        student.badge_count += 1
+    db.session.commit()
+
+
 with app.app_context():
     seed_database()
     migrate_legacy_schema()
+    migrate_manual_points_to_badges()
 
 
 if __name__ == "__main__":

@@ -30,7 +30,7 @@ Important: change `JWT_SECRET` in `.env` before using real data.
 - `POST /api/qr-sessions/<token>/close` — close the live QR session (admin)
 - `POST /api/badges/redeem` — student redemption using the active session token
 - `GET /api/students` — admin/super-admin student list
-- `POST /api/students/<id>/points` — admin gives or removes points: `{"points": 10, "reason": "..."}`
+- `POST /api/students/<id>/points` — admin awards a selected badge (and its points); legacy direct points payloads are also supported
 - `GET /api/students/<id>/points` — admin point-award history
 - `DELETE /api/students/<id>/badges/<award_id>` — admin removes an awarded badge and its points
 - `GET /api/admins` — super-admin admin list
@@ -45,6 +45,8 @@ Authorization: Bearer YOUR_TOKEN
 ```
 
 SQLite is used locally by default. For deployment, set `DATABASE_URL` to a PostgreSQL connection string.
+
+On startup, older positive manual point records are converted into badge awards without double-counting their points. Negative adjustments remain point adjustments.
 
 ## Free deployment path
 
