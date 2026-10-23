@@ -476,15 +476,20 @@ def student_detail(user, student_id):
 def award_points(user, student_id):
     data = request.get_json(silent=True) or {}
     student = db.session.get(Student, student_id)
-    reason = str(data.get("reason", "")).strip()
-    try:
-        points = int(data.get("points", 0))
-    except (TypeError, ValueError):
-        points = 0
     if not student:
         return jsonify(error="المخدوم غير موجود"), 404
+    badge = db.session.get(Badge, data.get("badge_id")) if data.get("badge_id") else None
+    if badge and badge.is_active:
+        points = badge.points
+        reason = badge.name
+    else:
+        reason = str(data.get("reason", "")).strip()
+        try:
+            points = int(data.get("points", 0))
+        except (TypeError, ValueError):
+            points = 0
     if points == 0 or abs(points) > 10000 or not reason or len(reason) > 255:
-        return jsonify(error="أدخل عدد نقاط غير صفري وسببًا مختصرًا"), 400
+        return jsonify(error="اختر طايوًا صالحًا" if data.get("badge_id") else "بيانات النقاط غير صحيحة"), 400
     award = PointAward(student_id=student.id, awarded_by=user.id, points=points, reason=reason)
     student.total_points += points
     db.session.add(award)
