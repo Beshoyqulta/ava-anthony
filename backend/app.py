@@ -458,7 +458,8 @@ def qr_session_image(token):
 @app.get("/api/students")
 @require_roles("admin")
 def students(_user):
-    return jsonify(students=[student_json(s) for s in Student.query.join(User).order_by(User.full_name).all()])
+    rows = Student.query.join(User).order_by(Student.total_points.desc(), User.full_name.asc()).all()
+    return jsonify(students=[student_json(s) for s in rows])
 
 
 @app.get("/api/students/<int:student_id>")
